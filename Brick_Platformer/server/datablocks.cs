@@ -12,6 +12,20 @@ datablock AudioProfile(RailContactSound)
 	preload = true;
 };
 
+datablock AudioProfile(BumperSound)
+{
+	description = "AudioClosest3D";
+	fileName = $Platformer::Assets @ "bumper.wav";
+	preload = true;
+};
+
+datablock AudioProfile(BumperFarSound)
+{
+	description = "AudioClosest3D";
+	fileName = $Platformer::Assets @ "bumper2.wav";
+	preload = true;
+};
+
 datablock ParticleData(GrindSparkParticle)
 {
 	textureName          	= "base/data/particles/star1";
@@ -53,6 +67,56 @@ datablock ParticleEmitterData(GrindSparkEmitter)
 datablock StaticShapeData(arrowIndicatorShape)
 {
 	shapeFile = $Platformer::Assets @ "arrow.dts";
+};
+
+datablock fxDTSBrickData(Brick2x2BumperData)
+{
+	brickFile = $Platformer::Assets @ "bumper2x2.blb";
+	iconName = $Platformer::Assets @ "icon_bumper2x2";
+
+	category = "Special";
+	subCategory = "Platformer - Misc";
+	uiName = "2x2 Bumper";
+
+	platformerType = "Bumper";
+	bumperPower = 25; //Power of the bumper. Used only in bumper/bumperdir.
+	bumerAddSpeed = 0; //Don't mess with this, it doesn't do anything good.
+	bumperDirectional = false; //Flag for directional bumpers.
+};
+
+datablock fxDTSBrickData(Brick4x4BumperData)
+{
+	brickFile = $Platformer::Assets @ "bumper4x4.blb";
+	iconName = $Platformer::Assets @ "icon_bumper4x4";
+
+	category = "Special";
+	subCategory = "Platformer - Misc";
+	uiName = "4x4 Bumper";
+
+	platformerType = "Bumper";
+	bumperPower = 25;
+	bumerAddSpeed = 0;
+	bumperDirectional = false;
+};
+
+datablock fxDTSBrickData(Brick2x2BumperSideData : Brick2x2BumperData)
+{
+	brickFile = $Platformer::Assets @ "bumper2x2Side.blb";
+	iconName = $Platformer::Assets @ "icon_bumper2x2Side";
+
+	uiName = "2x2 Sideways Bumper";
+
+	bumperDirectional = true;
+};
+
+datablock fxDTSBrickData(Brick4x4BumperSideData : Brick4x4BumperData)
+{
+	brickFile = $Platformer::Assets @ "bumper4x4Side.blb";
+	iconName = $Platformer::Assets @ "icon_bumper4x4Side";
+
+	uiName = "4x4 Sideways Bumper";
+
+	bumperDirectional = true;
 };
 
 

@@ -2,7 +2,7 @@ exec("./datablocks.cs");
 exec("./dependency.cs");
 exec("./grindRails.cs");
 //TODO: Fix up bumpers and boosters; move datablocks to datablocks.cs with correct paths
-// exec("./bumper.cs");
+exec("./bumper2.cs");
 // exec("./booster.cs");
 
 package PlatformerBricks_Server

@@ -18,93 +18,17 @@ function SimGroup::hasNTObject(%bg, %nt) //Fairly-self-explanatory, returns an i
 	return -1;
 }
 
-
-//DATABLOCKS
-datablock AudioProfile(BumperSound)
-{
-	description = "AudioClosest3D";
-	fileName = "./resources/bumper.wav";
-	preload = true;
-};
-
-datablock AudioProfile(BumperFarSound)
-{
-	description = "AudioClosest3D";
-	fileName = "./resources/bumper2.wav";
-	preload = true;
-};
-
-datablock fxDTSBrickData(Brick2x2BumperData)
-{
-	brickFile = "./resources/bumper2x2.blb";
-	iconName = "config/scripts/server/Brick_Platformer/resources/icon_bumper2x2";
-
-	category = "Special";
-	subCategory = "Platformer - Misc";
-	uiName = "2x2 Bumper";
-
-	isBumper = true; //Flag for bumper bricks.
-	bumperPower = 25; //Power of the bumper. Used only in bumper/bumperdir.
-	bumerAddSpeed = 0; //Don't mess with this, it doesn't do anything good.
-	bumperDirectional = false; //Flag for directional bumpers.
-};
-
-datablock fxDTSBrickData(Brick4x4BumperData)
-{
-	brickFile = "./resources/bumper4x4.blb";
-	iconName = "config/scripts/server/Brick_Platformer/resources/icon_bumper4x4";
-
-	category = "Special";
-	subCategory = "Platformer - Misc";
-	uiName = "4x4 Bumper";
-
-	isBumper = true;
-	bumperPower = 25;
-	bumerAddSpeed = 0;
-	bumperDirectional = false;
-};
-
-datablock fxDTSBrickData(Brick2x2BumperSideData : Brick2x2BumperData)
-{
-	brickFile = "./resources/bumper2x2Side.blb";
-	iconName = "config/scripts/server/Brick_Platformer/resources/icon_bumper2x2Side";
-
-	uiName = "2x2 Sideways Bumper";
-
-	bumperDirectional = true;
-};
-
-datablock fxDTSBrickData(Brick4x4BumperSideData : Brick4x4BumperData)
-{
-	brickFile = "./resources/bumper4x4Side.blb";
-	iconName = "config/scripts/server/Brick_Platformer/resources/icon_bumper4x4Side";
-
-	uiName = "4x4 Sideways Bumper";
-
-	bumperDirectional = true;
-};
-
 //CLASS FUNCTIONS
 function fxDTSBrick::BumperTo(%this, %target, %player, %start, %orient) //Target bumper function.
 {
 	if(isEventPending(%player.bumper))
 		cancel(%player.bumper);
 
-	if(%player.isGrinding) //Detach player from rails.
-	{
-		if(isEventPending(%player.grindSchedule))
-			cancel(%player.grindSchedule);
-		%player.stopAudio(3);
-		%player.lastGoodAngle = "";
-		%player.lastGrind = "";
-		%player.isGrinding = false;
-		%player.grindOffset = false;
-		%player.grindEmitter.delete();
-		%player.grindEmitter = 0;
-	}
-
 	if(!isObject(%player))
 		return;
+
+	if(%player.grinding) //Detach player from rails.
+		%player.grindExit();
 
 	//echo(%target SPC %target.getName());
 
@@ -182,18 +106,8 @@ function fxDTSBrick::Bumper(%this, %player, %power, %val) //Handles regular up/d
 	if(isEventPending(%player.bumper) && !%player.bumperMoving)
 		cancel(%player.bumper);
 
-	if(%player.isGrinding)
-	{
-		if(isEventPending(%player.grindSchedule))
-			cancel(%player.grindSchedule);
-		%player.stopAudio(3);
-		%player.lastGoodAngle = "";
-		%player.lastGrind = "";
-		%player.isGrinding = false;
-		%player.grindOffset = false;
-		%player.grindEmitter.delete();
-		%player.grindEmitter = 0;
-	}
+	if(%player.grinding)
+		%player.grindExit();
 
 	if(%val)
 	{
@@ -217,18 +131,8 @@ function fxDTSBrick::BumperDir(%this, %player, %power, %direction, %z, %val) //H
 	if(isEventPending(%player.bumper) && !%player.bumperMoving)
 		cancel(%player.bumper);
 
-	if(%player.isGrinding)
-	{
-		if(isEventPending(%player.grindSchedule))
-			cancel(%player.grindSchedule);
-		%player.stopAudio(3);
-		%player.lastGoodAngle = "";
-		%player.lastGrind = "";
-		%player.isGrinding = false;
-		%player.grindOffset = false;
-		%player.grindEmitter.delete();
-		%player.grindEmitter = 0;
-	}
+	if(%player.grinding)
+		%player.grindExit();
 
 	if(%val)
 	{
@@ -252,7 +156,7 @@ function fxDTSBrick::BumperDir(%this, %player, %power, %direction, %z, %val) //H
 	else
 		%this.onBumper(%player);
 
-	%player.bumper = %this.schedule($Platformer::Bumper::Speed, BumperDir, %player, %power, %direction, %z, true);
+	%player.bumper = %this.schedule(0, BumperDir, %player, %power, %direction, %z, true);
 }
 
 function fxDTSBrick::doBumper(%this, %power, %client)
@@ -348,27 +252,11 @@ function fxDTSBrick::onBumper(%this, %player)
 //Package
 package Platformer_Bumpers
 {
-	function fxDTSBrickData::onPlant(%this, %obj)
-	{
-		parent::onPlant(%this, %obj);
-
-		if(%this.isBumper)
-			%obj.enableTouch = true;
-	}
-
-	function fxDTSBrickData::onLoadPlant(%this, %obj)
-	{
-		parent::onLoadPlant(%this, %obj);
-
-		if(%this.isBumper)
-			%obj.enableTouch = true;
-	}
-
 	function fxDTSBrickData::onPlayerTouch(%this, %obj, %player)
 	{
 		parent::onPlayerTouch(%this, %obj, %player);
 
-		if(!%this.isBumper)
+		if(%this.platformerType !$= "Bumper")
 			return;
 
 		if(!%this.bumperDirectional)

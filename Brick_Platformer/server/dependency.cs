@@ -121,63 +121,6 @@ function RelayCheck(%start, %angle, %len, %xyz, %returnRay) //Essentially allows
 	return -1;
 }
 
-function vectorFloor(%vec) //Does mFloor on each axis of a vector.
-{
-	for(%i = 0; %i < 3; %i++)
-	{
-		%w = getWord(%vec, %i);
-		%vec = setWord(%vec, %i, mFloor(%w));
-	}
-	return %vec;
-}
-
-function GrindFixVector(%vec) //Modifies vectors so that each axis is either 1 or 0.
-{
-	for(%i = 0; %i < 3; %i++)
-	{
-		%w = getWord(%vec, %i);
-		switch(%i)
-		{
-			case 0: %vec1 = VectorNormalize(%w SPC "0 0");
-			case 1: %vec2 = VectorNormalize("0" SPC %w SPC "0");
-			case 2: %vec3 = VectorNormalize("0 0" SPC %w);
-		}
-	}
-	%vec = VectorAdd(%vec3, VectorAdd(%vec1, %vec2));
-	return %vec;
-}
-
-function GrindDirCompare(%bDir, %pVel) //Figures out if directions of a brick and a player's velocity are opposite, the same, or unmatching. Expects GrindFixVector to be used on player velocity.
-{
-	if(getWord(%bDir, 0) == 0)
-	{
-		%yB = getWord(%bDir, 1);
-		%yP = getWord(%pVel, 1);
-		if(%yB == 0)
-			return -1;
-		else if(%yP == 0)
-			return -1;
-		else if(%yB == %yP)
-			return 1;
-		else if(%yB == %yP * -1)
-			return 0;
-	}
-	else
-	{
-		%xB = getWord(%bDir, 0);
-		%xP = getWord(%pVel, 0);
-		if(%xB == 0)
-			return -1;
-		else if(%xP == 0)
-			return -1;
-		else if(%xB == %xP)
-			return 1;
-		else if(%xB == %xP * -1)
-			return 0;
-	}
-	return -1;
-}
-
 function ShapeBase::getEulerRotation(%this)
 {
 	%rot = getWords(%this.getTransform(), 3, 6);
@@ -212,4 +155,14 @@ function ShapeBase::getPointAtRotation(%this, %pos)
 	%rotX = mAtan(%dZ, %hyp);
 
 	return eulerRadToMatrix(%rotX SPC 0 SPC %rotZ);
+}
+
+function SimGroup::hasNTObject(%bg, %nt) //Fairly-self-explanatory, returns an index if the brick name is found in a brickgroup.
+{
+	for(%i = 0; %i < %bg.NTNameCount; %i++)
+	{
+		if(%bg.NTName[%i] $= %nt)
+			return %i;
+	}
+	return -1;
 }

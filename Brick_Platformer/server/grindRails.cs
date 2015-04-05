@@ -297,6 +297,186 @@ function fxDTSBrick::gEndSearch(%this, %reverse)
 	return %search;
 }
 
+function fxDTSBrick::gSolveRailPoint(%this, %pos, %fixPlayer)
+{
+	%db = %this.getDatablock();
+	if(!%db.isValidRail())
+		return -1;
+
+	pDebug("   [gSolveRailPoint]-Pos:" SPC %pos, %this);
+
+	%ct = %db.gGetSegmentCount();
+
+	for(%i = 0; %i < %ct; %i++)
+	{
+		%pt[%i] = %this.gGetRailPoint(%i, %fixPlayer);
+		%dist[%i] = VectorDist(%pt[%i], %pos);
+
+		pDebug("   [gSolveRailPoint]-Point" @ %i @ ":" SPC %pt[%i], %this);
+		pDebug("   [gSolveRailPoint]-Dist" @ %i @ ":" SPC %dist[%i], %this);
+
+		if(%lowest $= "" || %dist[%i] < %dist[%lowest])
+			%lowest = %i;
+	}
+	pDebug("   [gSolveRailPoint]-Lowest:" SPC %lowest @ ", " @ %pt[%lowest] @ ", " @ %dist[%lowest], %this);
+
+	if(%lowest $= "")
+		return -2; //ridiculous error traps
+
+	%segment = 0;
+
+	%a = %lowest - 1;
+	%b = %lowest + 1;
+
+	pDebug("   [gSolveRailPoint]-A:" SPC %a, %this);
+	pDebug("   [gSolveRailPoint]-B:" SPC %b, %this);
+
+	%posA = %pt[%a];
+	pDebug("   [gSolveRailPoint]-PosA:" SPC %posA, %this);
+	if(%posA $= "") //closest point is start
+		%segment = 0;
+	else
+	{
+		%posB = %pt[%b];
+		pDebug("   [gSolveRailPoint]-PosB:" SPC %posB, %this);
+		if(%posB $= "" || %dist[%a] < %dist[%b])
+			%segment = %a;
+		else
+			%segment = %lowest;
+	}
+
+	pDebug("   [gSolveRailPoint]-Segment:" SPC %segment, %this);
+
+	%len = %db.gGetSegmentLength(%segment);
+
+	pDebug("   [gSolveRailPoint]-Len:" SPC %len, %this);
+
+	if(%len < 0)
+		return -4; //ludicrous error traps
+
+	%fraction = %dist[%segment] / %len;
+
+	pDebug("   [gSolveRailPoint]-Fraction:" SPC %dist[%segment] SPC "/" SPC %len SPC "=" SPC %fraction, %this);
+
+	%r = %segment + %fraction;
+
+	pDebug("   [gSolveRailPoint]-Return:" SPC %r, %this);
+
+	return %r;
+}
+
+function fxDTSBrick::gSolveTransferPoint(%this, %pos, %fixPlayer)
+{
+	%db = %this.getDatablock();
+	if(!%db.isValidRail())
+		return "";
+
+	%ct = %db.gGetSegmentCount();
+	%start = %this.gGetRailPoint(0, %fixPlayer);
+	%end = %this.gGetRailPoint(%ct-1, %fixPlayer);
+
+	pDebug("   [gSolveTransferPoint]-Pos:" SPC %pos, %this);
+	pDebug("   [gSolveTransferPoint]-Start:" SPC %start, %this);
+	pDebug("   [gSolveTransferPoint]-End:" SPC %end, %this);
+
+	%distA = VectorDist(%start, %pos);
+	%distB = VectorDist(%end, %pos);
+
+	pDebug("   [gSolveTransferPoint]-DistA:" SPC %distA, %this);
+	pDebug("   [gSolveTransferPoint]-DistB:" SPC %start, %this);
+
+	if(%distA < %distB)
+	{
+		%pointA = %this.gGetRailPoint(1, %fixPlayer);
+		%dist = VectorDist(%pointA, %pos);
+		%len = VectorDist(%pointA, %start);
+		%prog = %dist / %len;
+		%r = (1 - %prog);
+
+		pDebug("   [gSolveTransferPoint]-PointA:" SPC %pointA, %this);
+		pDebug("   [gSolveTransferPoint]-Dist:" SPC %dist, %this);
+		pDebug("   [gSolveTransferPoint]-Len:" SPC %len, %this);
+		pDebug("   [gSolveTransferPoint]-Prog:" SPC %prog, %this);
+		pDebug("   [gSolveTransferPoint]-Return:" SPC %r, %this);
+
+		return %r;
+	}
+
+	%pointA = %this.gGetRailPoint(%ct-2, %fixPlayer);
+	%dist = VectorDist(%pointA, %pos);
+	%len = VectorDist(%pointA, %end);
+	%prog = %dist / %len;
+	%r = (%ct + %prog - 1);
+
+	pDebug("   [gSolveTransferPoint]-PointA:" SPC %pointA, %this);
+	pDebug("   [gSolveTransferPoint]-Dist:" SPC %dist, %this);
+	pDebug("   [gSolveTransferPoint]-Len:" SPC %len, %this);
+	pDebug("   [gSolveTransferPoint]-Prog:" SPC %prog, %this);
+	pDebug("   [gSolveTransferPoint]-Return:" SPC %r, %this);
+
+	return %r;
+}
+
+function fxDTSBrick::gSolveShouldReverse(%this, %obj, %segment)
+{
+	%db = %this.getDatablock();
+	if(!%db.isValidRail() || %obj.getClassName() !$= "Player")
+		return -1;
+
+	%velS = %this.gGetRailVelocity(%segment);
+	if(getWordCount(%velS) != 3)
+	{
+		%velS = %this.gGetRailVelocity(%segment, false, true);
+		if(getWordCount(%velS) != 3)
+			return -2; //excuse me
+		return true;
+	}
+	%velP = %obj.getVelocity();
+	%comp = mFloatLength(VectorDot(%velP, %velS), 0);
+
+	pDebug("   [gSolveShouldReverse]-Segment:" SPC %segment, %this, %obj);
+	pDebug("   [gSolveShouldReverse]-VelS:" SPC %velS, %this, %obj);
+	pDebug("   [gSolveShouldReverse]-VelP:" SPC %velP, %this, %obj);
+	pDebug("   [gSolveShouldReverse]-Comp:" SPC %comp, %this, %obj);
+
+	if(%comp < 0)
+		return true;
+
+	return false;
+}
+
+function fxDTSBrick::gSolveShouldReverseTransfer(%this, %new, %reversed)
+{
+	%dbA = %this.getDatablock();
+	%dbB = %new.getDatablock();
+	if(!%dbA.isValidRail() || !%dbB.isValidRail())
+		return "";
+
+	%ctA = %dbA.gGetSegmentCount();
+	%ctB = %dbB.gGetSegmentCount();
+	if(!%reversed)
+	{
+		%velA = %this.gGetRailVelocity(%ctA-2);
+		%velB = %new.gGetRailVelocity(0);
+	}
+	else
+	{
+		%velA = %this.gGetRailVelocity(1, false, true);
+		%velB = %new.gGetRailVelocity(%ctB-1, false, true);
+	}
+
+	%comp = mFloatLength(VectorDot(%velA, %velB), 0);
+
+	pDebug("   [gSolveShouldReverseTransfer]-Reversed:" SPC %reversed, %this, %new);
+	pDebug("   [gSolveShouldReverseTransfer]-VelA:" SPC %velA, %this, %new);
+	pDebug("   [gSolveShouldReverseTransfer]-VelB:" SPC %velB, %this, %new);
+	pDebug("   [gSolveShouldReverseTransfer]-Comp:" SPC %comp, %this, %new);
+	if(%comp < 0)
+		return true;
+
+	return false;
+}
+
 function Player::grindEnter(%this, %obj, %startPoint, %reverse)
 {
 	if(!isObject(%obj) || !isObject(%this))
@@ -308,40 +488,56 @@ function Player::grindEnter(%this, %obj, %startPoint, %reverse)
 
 	pDebug("GRIND : Player entering grind (" @ $Sim::Time @ ", " @ %this @ ", " @ %obj @ ")", %this, %obj);
 
+	%pos = %this.getPosition();
+
 	if(%startPoint $= "")
 	{
-		%len = %db.gGetTotalLength();
-		%start = %obj.gGetRailPoint(0, 1);
-		%dist = VectorDist(%start, %this.getPosition());
+		%startPoint = %obj.gSolveRailPoint(%pos, true);
 
-		pDebug("   -Len:" SPC %len, %obj, %this);
-		pDebug("   -Start:" SPC %start, %obj, %this);
-		pDebug("   -Pos:" SPC %this.getPosition(), %obj, %this);
-		pDebug("   -Dist:" SPC %dist, %obj, %this);
+		pDebug("   -Resolved startPoint:" SPC %startPoint, %this, %obj);
 
-		if(%dist > %len)
+		if(%startPoint < 0)
 		{
-			pDebug("   -Reverse; distance exceeds length", %obj, %this);
-			%this.grindReversed = true;
+			pDebug("   !startPoint Error, reset to 0", %this, %obj);
+			%startPoint = 0;
 		}
-		%startPoint = %dist / %len;
 
-		pDebug("   -startPoint:" SPC %startPoint, %obj, %this);
+		// %len = %db.gGetTotalLength();
+		// %start = %obj.gGetRailPoint(0, 1);
+		// %dist = VectorDist(%start, %this.getPosition());
+
+		// pDebug("   -Len:" SPC %len, %obj, %this);
+		// pDebug("   -Start:" SPC %start, %obj, %this);
+		// pDebug("   -Pos:" SPC %this.getPosition(), %obj, %this);
+		// pDebug("   -Dist:" SPC %dist, %obj, %this);
+
+		// if(%dist > %len)
+		// {
+		// 	pDebug("   -Reverse; distance exceeds length", %obj, %this);
+		// 	%this.grindReversed = true;
+		// }
+		// %startPoint = %dist / %len;
+
+		// pDebug("   -startPoint:" SPC %startPoint, %obj, %this);
 	}
-
-	%objDir = rotateVector(%db.railEndSearchDir, "0 0 0", %obj.getAngleID());
-	%comp = mFloatLength(VectorDot(%this.getVelocity(), %objDir), 0);
-	if(%comp < 0)
-		%this.grindReversed = true;
-
-	if(%reverse !$= "")
-		%this.grindReversed = %reverse;
 
 	if(%startPoint < 0)
 		%startPoint = 0;
 
 	if(%startPoint > (%ct = %db.gGetSegmentCount()-1))
 		%startPoint = %ct;
+
+	// %objDir = rotateVector(%db.railEndSearchDir, "0 0 0", %obj.getAngleID());
+	// %comp = mFloatLength(VectorDot(%this.getVelocity(), %objDir), 0);
+	// if(%comp < 0)
+	// 	%this.grindReversed = true;
+
+	%this.grindReversed = %obj.gSolveShouldReverse(%this, %startPoint);
+
+	pDebug("   -Resolved Reverse:" SPC %this.grindReversed, %this, %obj);
+
+	if(%reverse !$= "")
+		%this.grindReversed = %reverse;
 
 	%this.grinding = true;
 	%this.grindObj = %obj;
@@ -376,72 +572,86 @@ function Player::grindTransfer(%this, %obj, %new, %startPoint, %reverse)
 
 	pDebug("GRIND : Transferring control (" @ $Sim::Time @ ", " @ %this @ ", " @ %obj @ "->" @ %new @ ")", %this, %obj);
 
-	%dirOld = rotateVector(%db.railEndSearchDir, "0 0 0", %obj.getAngleID());
-	%dirNew = rotateVector(%dbnew.railEndSearchDir, "0 0 0", %new.getAngleID());
-	%comp = mFloatLength(VectorDot(%dirOld, %dirNew), 0);
-	if(%comp < 0)
-		%this.grindReversed ^= 1;
+	// %dirOld = rotateVector(%db.railEndSearchDir, "0 0 0", %obj.getAngleID());
+	// %dirNew = rotateVector(%dbnew.railEndSearchDir, "0 0 0", %new.getAngleID());
+	// %comp = mFloatLength(VectorDot(%dirOld, %dirNew), 0);
+	// if(%comp < 0)
+	// 	%this.grindReversed ^= 1;
 
-	pDebug("   -Comp:" SPC %comp, %this, %obj, %new);
+	// pDebug("   -Comp:" SPC %comp, %this, %obj, %new);
 
 	if(%startPoint $= "")
 	{
-		%startNew = %new.gGetRailPoint(0);
-		%endNew = %new.gGetRailPoint(%endLast = %dbnew.gGetSegmentCount()-1);
 		%pos = %this.getPosition();
-		%distA = VectorDist(%startNew, %pos);
-		%distB = VectorDist(%endNew, %pos);
-		%lenNew = %dbNew.gGetTotalLength();
+		%startPoint = %new.gSolveTransferPoint(%pos, true);
 
-		pDebug("   -Len:" SPC %lenNew, %obj, %this, %new);
-		pDebug("   -Start:" SPC %startNew, %obj, %this, %new);
-		pDebug("   -Pos:" SPC %this.getPosition(), %obj, %this, %new);
-		pDebug("   -DistA:" SPC %distA, %obj, %this, %new);
-		pDebug("   -DistB:" SPC %distB, %obj, %this, %new);
+		pDebug("   -Resolved startPoint:" SPC %startPoint, %this, %obj, %new);
 
-		if(%reverse $= "")
-		{
-			if(%distA > %distB)
-				%this.grindReversed = true;
-			else
-				%this.grindReversed = false;
-		}
-		else
-			%this.grindReversed = %reverse;
+		// %lenNew = %dbNew.gGetTotalLength();
+
+		// pDebug("   -Len:" SPC %lenNew, %obj, %this, %new);
+		// pDebug("   -Start:" SPC %startNew, %obj, %this, %new);
+		// pDebug("   -Pos:" SPC %this.getPosition(), %obj, %this, %new);
+		// pDebug("   -DistA:" SPC %distA, %obj, %this, %new);
+		// pDebug("   -DistB:" SPC %distB, %obj, %this, %new);
+
+		// if(%reverse $= "")
+		// {
+		// 	if(%distA > %distB)
+		// 		%this.grindReversed = true;
+		// 	else
+		// 		%this.grindReversed = false;
+		// }
+		// else
+		// 	%this.grindReversed = %reverse;
 		
-		%start = %distA / %lenNew;
-		if(!%this.grindReversed)
-			%start = -%start;
+		// %start = %distA / %lenNew;
+		// if(!%this.grindReversed)
+		// 	%start = -%start;
 
-		%this.grindPointLast = %start;
-		%this.grindCurrSegment = (%this.grindReversed ? mCeil(%start) : mFloor(%start));
-		if(%this.grindCurrSegment < 0)
-			%this.grindCurrSegment = 0;
-		if(%this.grindCurrSegment > %endLast)
-			%this.grindCurrSegment = %endLast;
+		// %this.grindPointLast = %start;
+		// %this.grindCurrSegment = (%this.grindReversed ? mCeil(%start) : mFloor(%start));
+		// if(%this.grindCurrSegment < 0)
+		// 	%this.grindCurrSegment = 0;
+		// if(%this.grindCurrSegment > %endLast)
+		// 	%this.grindCurrSegment = %endLast;
+
+
 	}
-	else
-	{
-		// %objDir = rotateVector(%dbnew.railEndSearchDir, "0 0 0", %new.getAngleID());
-		// %comp = mFloatLength(VectorDot(%this.getVelocity(), %objDir), 0);
-		// if(%comp < 0)
-		// 	%this.grindReversed = true;
+	// else
+	// {
+	// 	%objDir = rotateVector(%dbnew.railEndSearchDir, "0 0 0", %new.getAngleID());
+	// 	%comp = mFloatLength(VectorDot(%this.getVelocity(), %objDir), 0);
+	// 	if(%comp < 0)
+	// 		%this.grindReversed = true;
 
-		// pDebug("   -objDir:" SPC %objDir, %this, %obj, %new);
-		// pDebug("   -comp:" SPC %comp, %this, %obj, %new);
+	// 	pDebug("   -objDir:" SPC %objDir, %this, %obj, %new);
+	// 	pDebug("   -comp:" SPC %comp, %this, %obj, %new);
 
-		if(%reverse !$= "")
-			%this.grindReversed = %reverse;
 
-		if(%startPoint < 0)
-			%startPoint = 0;
+	// }
 
-		if(%startPoint > (%ct = %db.gGetSegmentCount()-1))
-			%startPoint = %ct;
+	if(%startPoint < 0)
+		%startPoint = 0;
 
-		%this.grindPointLast = %startPoint;
-		%this.grindCurrSegment = (%this.grindReversed ? mCeil(%startPoint) : mFloor(%startPoint));
-	}
+	if(%startPoint > (%ct = %db.gGetSegmentCount()-1))
+		%startPoint = %ct;
+
+	%res = %obj.gSolveShouldReverseTransfer(%new, %this.grindReversed);
+	%this.grindReversed ^= %res;
+
+	pDebug("   -Resolved Reverse:" SPC (%res ? "yes" : "no"), %this, %obj, %new);
+
+	if(%reverse !$= "")
+		%this.grindReversed = %reverse;
+
+	%this.grindPointLast = %startPoint;
+	%this.grindCurrSegment = (%this.grindReversed ? mCeil(%startPoint) : mFloor(%startPoint));
+
+	if(%this.grindCurrSegment < 0)
+		%this.grindCurrSegment = 0;
+	if(%this.grindCurrSegment > (%l = %dbnew.gGetSegmentCount()-1))
+		%this.grindCurrSegment = %l;
 
 	%this.grindObj = %new;
 
@@ -821,13 +1031,20 @@ package Platformer_GrindRails
 
 				pDebug("   -New:" SPC %new, %obj, %rail, %new);
 
-				%hitPos = getWords(%ray, 1, 3);
-				%newStart = %new.gGetRailPoint(0);
-				%len = %newdb.gGetTotalLength();
-				%dist = VectorDist(%hitPos, %newStart);
-				%startPoint = %dist / %len;
+				// %hitPos = getWords(%ray, 1, 3);
+				// %newStart = %new.gGetRailPoint(0);
+				// %len = %newdb.gGetTotalLength();
+				// %dist = VectorDist(%hitPos, %newStart);
+				// %startPoint = %dist / %len;
 
+				%hitPos = posFromRaycast(%ray);
+				%startPoint = %new.gSolveRailPoint(%hitPos);
+
+				pDebug("   -HitPos:" @ %hitPos, %obj, %rail, %new);
 				pDebug("   -StartPoint:" @ %startPoint, %obj, %rail, %new);
+
+				if(%startPoint < 0)
+					return;
 
 				%obj.grindTransfer(%rail, %new, %startPoint);
 		}

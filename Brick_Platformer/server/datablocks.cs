@@ -69,6 +69,9 @@ datablock StaticShapeData(arrowIndicatorShape)
 	shapeFile = $Platformer::Assets @ "arrow.dts";
 };
 
+
+
+//Bumpers
 datablock fxDTSBrickData(Brick2x2BumperData)
 {
 	brickFile = $Platformer::Assets @ "bumper2x2.blb";
@@ -120,6 +123,7 @@ datablock fxDTSBrickData(Brick4x4BumperSideData : Brick4x4BumperData)
 };
 
 
+
 //Grind Rails
 datablock fxDTSBrickData(brick1x16fRailData : brick1x16fData)
 {
@@ -135,4 +139,53 @@ datablock fxDTSBrickData(brick1x16fRailData : brick1x16fData)
 
 	railEndSearchDir = "0 -1 0";
 	railStartSearchDir = "0 1 0";
+};
+
+datablock fxDTSBrickData(brick2x2fCornerRailData)
+{
+	brickFile = $Platformer::Assets @ "2x2Fcorner.blb";
+	iconName = $Platformer::Assets @ "2x2F Corner";
+
+	uiName = "2x2f Corner Grind Rail";
+
+	category = "Special";
+	subCategory = "Grind Rails";
+
+	platformerType = "Rail";
+
+	railPoint0 = "0.25 -0.25 0";
+	railPoint1 = "-0.25 -0.25 0";
+	railPoint2 = "-0.25 0.25 0";
+
+	railEndSearchDir = "0 1 0";
+	railStartSearchDir = "1 0 0";
+
+	railUpdateOnTransfer = false;
+
+	railUpdateRateMS = 25;
+
+	railInterpolationMethodPoint = 1;
+	railInterpolationMethodVel = 1;
+};
+
+datablock fxDTSBrickData(brick1x16fRailHighSpeedData : brick1x16fRailData)
+{
+	uiName = "1x16f Grind Rail (High Speed)";
+
+	railSpeed0 = $Platformer::Rails::DefaultSpeed * 1.5;
+};
+
+datablock fxDTSBrickData(brick1x16fRailHighSpeedTransitionData : brick1x16fRailData)
+{
+	uiName = "1x16f Grind Rail (Low->High Speed)";
+
+	railPoint1 = "0 0 0";
+	railSpeed1 = $Platformer::Rails::DefaultSpeed * 1.5;
+
+	railPoint2 = "0 -3.75 0";
+
+	railInterpolationMethodVel = 1;
+	railInterpolationMethodPoint = 1;
+
+	// railUpdateRateMS = 25;
 };

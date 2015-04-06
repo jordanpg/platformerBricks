@@ -1,3 +1,5 @@
 Name: Platformer Bricks v2
-Author: ottosparks
+Author: Armageddon, ottosparks
 Revisiting platformer bricks! gota go fast!!!!!
+
+Corner brick from Brick_Corner by ChristopherP and King Tinks

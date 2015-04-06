@@ -65,6 +65,13 @@ function VectorInterpolate_Linear(%a, %b, %mu)
 	return VectorAdd(VectorScale(%a, 1-%mu), VectorScale(%b, %mu));
 }
 
+function VectorInterpolate_Cosine(%a, %b, %mu)
+{
+	// talk("cosine" SPC %a SPC %b SPC %mu);
+	%mu2 = (1 - mCos(%mu * $pi)) / 2;
+	return VectorAdd(VectorScale(%a, 1-%mu2), VectorScale(%b, %mu2));
+}
+
 function rotateVector(%vector, %axis, %val) //Rotates a vector around the axis by an angleID.
 {
 	if(%val < 0)

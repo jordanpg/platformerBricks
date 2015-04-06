@@ -10,7 +10,7 @@ $Platformer::Rails::PlayerGravityFix	= 20;			//Used to counteract gravity whilst
 $Platformer::Rails::TouchTimeout 		= 0.05;			//Timeout between rail touches
 $Platformer::Rails::MaximumDeviance		= 0.5;			//Maximum amount that a player can be away from the expected position.
 $Platformer::Rails::GhostShapeUpdate	= 50;			//Period between each ghost arrow update.
-$Platformer::Rails::GhostShapeInc		= 0.01;			//Amount arrow moves each update
+$Platformer::Rails::GhostShapeInc		= 0.02;			//Path percentage arrow moves each update
 $Platformer::Rails::DefaultExitSpeed	= 12.5;			//Speed when jumping from a rail
 $Platformer::Rails::DefaultJumpSpeed	= 16;			//Upward speed applied when jumping from a rail
 $Platformer::Rails::MaxSwitchDist		= 2.5;			//Maximum rail switch distance
@@ -165,7 +165,7 @@ function fxDTSBrickData::gGetSegmentVelocity(%this, %i, %r)
 		return %speed;
 
 	%dir = %this.gGetSegmentDirection(%i, %r);
-	if(%dir < 0)
+	if(getWordCount(%dir) != 3)
 		return %dir-1;
 
 	return VectorScale(%dir, %speed);
@@ -181,13 +181,18 @@ function fxDTSBrickData::gGetAverageSpeed(%this)
 	return %speed / %i;
 }
 
-function fxDTSBrickData::gGetUpdateRate(%this)
+function fxDTSBrickData::gGetUpdateRate(%this, %transfer)
 {
+	if(%transfer && %this.railUpdateOnTransfer)
+		return 0;
+
 	return (%this.railUpdateRateMS !$= "" ? %this.railUpdateRateMS : $Platformer::Rails::DefaultUpdateRate);
 }
 
 function fxDTSBrick::gGetRailPoint(%this, %i, %fixPlayer, %reverse)
 {
+	%db = %this.getDatablock();
+
 	if((%fi = (%reverse ? mCeil(%i) : mFloor(%i))) == %i)
 	{
 		%rel = %this.getDatablock().railPoint[%fi];
@@ -212,9 +217,19 @@ function fxDTSBrick::gGetRailPoint(%this, %i, %fixPlayer, %reverse)
 		%rel2 = rotateVector(%rel2, "0 0 0", %a);
 
 		if(%reverse)
-			%point = VectorAdd(%pos, VectorInterpolate_Linear(%rel1, %rel2, %fi - %i));
+		{
+			if(%db.railInterpolationMethodPoint == 1)
+				%point = VectorAdd(%pos, VectorInterpolate_Cosine(%rel1, %rel2, %fi - %i));
+			else
+				%point = VectorAdd(%pos, VectorInterpolate_Linear(%rel1, %rel2, %fi - %i));
+		}
 		else
-			%point = VectorAdd(%pos, VectorInterpolate_Linear(%rel1, %rel2, %i - %fi));
+		{
+			if(%db.railInterpolationMethodPoint == 1)
+				%point = VectorAdd(%pos, VectorInterpolate_Cosine(%rel1, %rel2, %i - %fi));
+			else
+				%point = VectorAdd(%pos, VectorInterpolate_Linear(%rel1, %rel2, %i - %fi));
+		}
 	}
 
 	if(%fixPlayer)
@@ -230,6 +245,7 @@ function fxDTSBrick::gGetRailPoint(%this, %i, %fixPlayer, %reverse)
 function fxDTSBrick::gGetRailVelocity(%this, %i, %fixPlayer, %reverse)
 {
 	%db = %this.getDatablock();
+	
 	if((%fi = (%reverse ? mCeil(%i) : mFloor(%i))) == %i)
 	{
 		%vel = %db.gGetSegmentVelocity(%fi, %reverse);
@@ -238,6 +254,7 @@ function fxDTSBrick::gGetRailVelocity(%this, %i, %fixPlayer, %reverse)
 	}
 	else
 	{
+		// talk(%db.railInterpolationMethodVel);
 		// talk(%i SPC %fi SPC %reverse);
 		%vel1 = %db.gGetSegmentVelocity(%fi, %reverse);
 		if(getWordCount(%vel1) != 3)
@@ -252,9 +269,25 @@ function fxDTSBrick::gGetRailVelocity(%this, %i, %fixPlayer, %reverse)
 		else
 		{
 			if(%reverse)
-				%vel = VectorInterpolate_Linear(%vel1, %vel2, %fi - %i);
+			{
+				if(%db.railInterpolationMethodVel == 1)
+				{
+					// talk(sds);
+					%vel = VectorInterpolate_Cosine(%vel1, %vel2, %fi - %i);
+				}
+				else
+					%vel = VectorInterpolate_Linear(%vel1, %vel2, %fi - %i);
+			}
 			else
-				%vel = VectorInterpolate_Linear(%vel1, %vel2, %i - %fi);
+			{
+				if(%db.railInterpolationMethodVel == 1)
+				{
+					// talk(sds);
+					%vel = VectorInterpolate_Cosine(%vel1, %vel2, %i - %fi);
+				}
+				else
+					%vel = VectorInterpolate_Linear(%vel1, %vel2, %i - %fi);
+			}
 		}
 	}
 
@@ -383,10 +416,11 @@ function fxDTSBrick::gSolveTransferPoint(%this, %pos, %fixPlayer)
 	%distB = VectorDist(%end, %pos);
 
 	pDebug("   [gSolveTransferPoint]-DistA:" SPC %distA, %this);
-	pDebug("   [gSolveTransferPoint]-DistB:" SPC %start, %this);
+	pDebug("   [gSolveTransferPoint]-DistB:" SPC %distB, %this);
 
 	if(%distA < %distB)
 	{
+		pDebug("   [gSolveTransferPoint]-DistA < DistB", %this);
 		%pointA = %this.gGetRailPoint(1, %fixPlayer);
 		%dist = VectorDist(%pointA, %pos);
 		%len = VectorDist(%pointA, %start);
@@ -402,10 +436,12 @@ function fxDTSBrick::gSolveTransferPoint(%this, %pos, %fixPlayer)
 		return %r;
 	}
 
+	pDebug("   [gSolveTransferPoint]-DistA >= DistB", %this);
+
 	%pointA = %this.gGetRailPoint(%ct-2, %fixPlayer);
 	%dist = VectorDist(%pointA, %pos);
 	%len = VectorDist(%pointA, %end);
-	%prog = %dist / %len;
+	%prog = (%len - %dist) / %len;
 	%r = (%ct + %prog - 1);
 
 	pDebug("   [gSolveTransferPoint]-PointA:" SPC %pointA, %this);
@@ -631,11 +667,11 @@ function Player::grindTransfer(%this, %obj, %new, %startPoint, %reverse)
 
 	// }
 
-	if(%startPoint < 0)
-		%startPoint = 0;
+	// if(%startPoint < 0)
+	// 	%startPoint = 0;
 
-	if(%startPoint > (%ct = %db.gGetSegmentCount()-1))
-		%startPoint = %ct;
+	// if(%startPoint > (%ct = %db.gGetSegmentCount()-1))
+	// 	%startPoint = %ct;
 
 	%res = %obj.gSolveShouldReverseTransfer(%new, %this.grindReversed);
 	%this.grindReversed ^= %res;
@@ -659,7 +695,7 @@ function Player::grindTransfer(%this, %obj, %new, %startPoint, %reverse)
 	pDebug("   -PointLast:" SPC %this.grindPointLast, %obj, %this, %new);
 	pDebug("   -CurrSegment:" SPC %this.grindCurrSegment, %obj, %this, %new);
 
-	%rate = %dbNew.gGetUpdateRate();
+	%rate = %dbNew.gGetUpdateRate(true);
 	%this.grindSchedule = %this.scheduleNoQuota(%rate, grindStep, %new);
 }
 
@@ -701,21 +737,16 @@ function Player::grindStep(%this, %obj)
 	%dist = VectorDist(%pos = %this.getPosition(), %obj.gGetRailPoint(%this.grindCurrSegment, 1, %this.grindReversed));
 	%mu = %dist / %len;
 	%currPoint = %this.grindCurrSegment + (%this.grindReversed ? -%mu : %mu);
+	if(%currPoint < 0)
+		%currPoint = 0;
+	if(%currPoint > (%segs = %db.gGetSegmentCount() - 1))
+		%currPoint = %segs;
 
 	%expectedPos = %obj.gGetRailPoint(%currPoint, 1, %this.grindReversed);
 	if(VectorDist(%pos, %expectedPos) >= $Platformer::Rails::MaximumDeviance)
 		%setPos = true;
 
-	%rate = %db.gGetUpdateRate();
-	%speed = %db.gGetSegmentSpeed(%this.grindCurrSegment, %this.grindReversed);
-	%nextPoint = %obj.gGetRailPoint(%this.grindCurrSegment+(%this.grindReversed ? -1 : 1), 1);
-	pDebug("   -NextPoint:" SPC %nextPoint, %obj, %this);
-	%distLeft = VectorDist((%setPos ? %expectedPos : %pos), %nextPoint);
-	%time = mFloor(%distLeft / %speed * 1000);
-	if(%time < %rate)
-		%rate = %time;
-
-	%expectedVel = %obj.gGetRailVelocity(%currPoint, 1, %this.grindReversed, %rate);
+	%expectedVel = %obj.gGetRailVelocity(%currPoint, 1, %this.grindReversed);
 
 	pDebug("   -currPoint:" SPC %currPoint, %this, %obj);
 	pDebug("   -expectedPos:" SPC %expectedPos, %this, %obj);
@@ -743,7 +774,7 @@ function Player::grindStep(%this, %obj)
 	if(%mu > 1)
 	{
 		%p = %this.grindCurrSegment;
-		%this.grindCurrSegment += (%this.grindReversed ? -1 : 1);
+		%this.grindCurrSegment += (%this.grindReversed ? -mFloor(%mu) : mFloor(%mu));
 		if(%this.grindCurrSegment < 0 || %this.grindCurrSegment > %db.gGetSegmentCount())
 		{
 			pDebug("GRIND : Exiting grind; segment increment overflowed (" @ %this @ ", " @ %obj @ ")", %this, %obj);
@@ -756,9 +787,21 @@ function Player::grindStep(%this, %obj)
 		}
 	}
 
-	pDebug("   -Rate:" SPC %rate, %this, %obj);
-
 	%this.grindLastRailPoint = VectorSub(%expectedPos, $Platformer::Rails::PlayerFixVector);
+
+	%rate = %dbrate = %db.gGetUpdateRate();
+	%speed = %db.gGetSegmentSpeed(%this.grindCurrSegment, %this.grindReversed);
+	%nextPoint = %obj.gGetRailPoint(%this.grindCurrSegment+(%this.grindReversed ? -1 : 1), 1);
+	pDebug("   -NextPoint:" SPC %nextPoint, %obj, %this);
+	%distLeft = VectorDist((%setPos ? %expectedPos : %pos), %nextPoint);
+	%time = mFloor(%distLeft / %speed * 1000);
+	if(%time < %rate)
+		%rate = %time;
+
+	if(%rate <= 0)
+		%rate = %dbrate;
+
+	pDebug("   -Rate:" SPC %rate, %this, %obj);
 
 	%this.grindSchedule = %this.scheduleNoQuota(%rate, grindStep, %obj);
 }
@@ -812,12 +855,14 @@ function Player::updateGrindGhost(%this)
 		return;
 	}
 
-	%shape.currPos += $Platformer::Rails::GhostShapeInc;
+	%shape.currPerc += $Platformer::Rails::GhostShapeInc;
+	%shape.currPos = %shape.currPerc * (%obj.getDatablock().gGetSegmentCount() - 1);
 	%pos = %obj.gGetRailPoint(%shape.currPos, 1);
 	%next = %obj.gGetRailPoint(mFloor(%shape.currPos)+1, 1);
 	if(getWordCount(%next) != 3)
 	{
 		%shape.currPos = 0;
+		%shape.currPerc = 0;
 		%pos = %obj.gGetRailPoint(0, 1);
 		%next = %obj.gGetRailPoint(1, 1);
 	}

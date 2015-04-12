@@ -173,3 +173,19 @@ function SimGroup::hasNTObject(%bg, %nt) //Fairly-self-explanatory, returns an i
 	}
 	return -1;
 }
+
+function ShapeBase::getObjectBoxSize(%this)
+{
+	%box = %this.getObjectBox();
+	%min = getWords(%box, 0, 2);
+	%max = getWords(%box, 3, 5);
+
+	%base = VectorSub(%max, %min);
+
+	%scale = %this.getScale();
+
+	for(%i = 0; %i < 3; %i++)
+		%size = %size SPC getWord(%base, %i) * getWord(%scale, %i);
+
+	return ltrim(%size);
+}

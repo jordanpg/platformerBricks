@@ -743,7 +743,7 @@ function Player::grindStep(%this, %obj)
 		%currPoint = %segs;
 
 	%expectedPos = %obj.gGetRailPoint(%currPoint, 1, %this.grindReversed);
-	if(VectorDist(%pos, %expectedPos) >= $Platformer::Rails::MaximumDeviance)
+	if(VectorDist(%pos, %expectedPos) >= $Platformer::Rails::MaximumDeviance || %db.railEnforcePosition)
 		%setPos = true;
 
 	%expectedVel = %obj.gGetRailVelocity(%currPoint, 1, %this.grindReversed);

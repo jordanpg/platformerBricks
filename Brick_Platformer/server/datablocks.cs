@@ -141,6 +141,22 @@ datablock fxDTSBrickData(brick1x16fRailData : brick1x16fData)
 	railStartSearchDir = "0 1 0";
 };
 
+datablock fxDTSBrickData(brick1x8fRailData : brick1x8fData)
+{
+	uiName = "1x8f Grind Rail";
+	
+	category = "Special";
+	subCategory = "Grind Rails";
+
+	platformerType = "Rail";
+
+	railPoint0 = "0 1.75 0";
+	railPoint1 = "0 -1.75 0";
+
+	railEndSearchDir = "0 -1 0";
+	railStartSearchDir = "0 1 0";
+};
+
 datablock fxDTSBrickData(brick2x2fCornerRailData)
 {
 	brickFile = $Platformer::Assets @ "2x2Fcorner.blb";
@@ -166,6 +182,8 @@ datablock fxDTSBrickData(brick2x2fCornerRailData)
 
 	railInterpolationMethodPoint = 1;
 	railInterpolationMethodVel = 1;
+
+	railEnforcePosition = true;
 };
 
 datablock fxDTSBrickData(brick1x16fRailHighSpeedData : brick1x16fRailData)
@@ -185,7 +203,7 @@ datablock fxDTSBrickData(brick1x16fRailHighSpeedTransitionData : brick1x16fRailD
 	railPoint2 = "0 -3.75 0";
 
 	railInterpolationMethodVel = 1;
-	railInterpolationMethodPoint = 1;
+	railInterpolationMethodPoint = 0;
 
 	// railUpdateRateMS = 25;
 };

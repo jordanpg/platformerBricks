@@ -18,7 +18,12 @@ function Player::boosterInit(%this, %obj, %amount, %period)
 		cancel(%this.boostCancel);
 
 	if(%this.boosting && !$boosters::FAST)
+	{
+		if(nameToID(%this.boostObj) == nameToID(%obj))
+			return;
+
 		%this.boosterStop();
+	}
 
 	%this.boosting = true;
 	%this.boostObj = %obj;

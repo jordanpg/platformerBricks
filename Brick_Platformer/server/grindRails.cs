@@ -590,6 +590,8 @@ function Player::grindEnter(%this, %obj, %startPoint, %reverse)
 	ServerPlay3D(RailContactSound, %pt);
 	%this.playAudio(3, RailGrindSound);
 
+	%obj.onGrindRailCatch(%this);
+
 	%this.grindSchedule = %this.scheduleNoQuota(0, grindStep, %obj);
 }
 
@@ -694,6 +696,9 @@ function Player::grindTransfer(%this, %obj, %new, %startPoint, %reverse)
 	pDebug("   -Reverse:" SPC (%this.grindReversed ? "yes" : "no"), %this, %obj);
 	pDebug("   -PointLast:" SPC %this.grindPointLast, %obj, %this, %new);
 	pDebug("   -CurrSegment:" SPC %this.grindCurrSegment, %obj, %this, %new);
+
+	%new.onGrindRailEnter(%obj, %this);
+	%obj.onGrindRailTransfer(%obj, %this);
 
 	%rate = %dbNew.gGetUpdateRate(true);
 	%this.grindSchedule = %this.scheduleNoQuota(%rate, grindStep, %new);
@@ -811,7 +816,42 @@ function Player::grindExit(%this, %obj)
 	if(isEventPending(%this.grindSchedule))
 		cancel(%this.grindSchedule);
 
+	if(!%this.grinding)
+		return;
+
 	pDebug("GRIND : Player exiting grind (" @ $Sim::Time @ ", " @ %this @ ", " @ %obj @ ")", %this, %obj);
+
+	if(isObject(%obj))
+	{
+		%obj.onGrindRailExit(%this);
+
+		%db = %obj.getDatablock();
+		if(%db.grindExitVelocity !$= "")
+		{
+			if(%db.grindExitVelocityOverride)
+			{
+				pDebug("GRIND : Applying exit override velocity (" @ %this @ ", " @ %obj @ ")", %this, %obj);
+				%this.setVelocity(%db.grindExitVelocity);
+			}
+			else
+			{
+				pDebug("GRIND : Applying exit velocity (" @ %this @ ", " @ %obj @ ")", %this, %obj);
+				%this.addVelocity(%db.grindExitVelocity);
+			}
+			pDebug("   -Velocity:" SPC %db.grindExitVelocity, %this, %obj);
+		}
+	}
+
+	%this.schedule(0, grindExit2);
+}
+
+function Player::grindExit2(%this)
+{
+	if(isEventPending(%this.grindSchedule))
+		cancel(%this.grindSchedule);
+
+	if(!%this.grinding)
+		return;
 
 	%this.grinding = false;
 	%this.grindObj = "";
@@ -820,25 +860,6 @@ function Player::grindExit(%this, %obj)
 	%this.grindSchedule = "";
 	%this.grindReversed = "";
 	%this.stopAudio(3);
-
-	if(!isObject(%obj))
-		return;
-
-	%db = %obj.getDatablock();
-	if(%db.grindExitVelocity !$= "")
-	{
-		if(%db.grindExitVelocityOverride)
-		{
-			pDebug("GRIND : Applying exit override velocity (" @ %this @ ", " @ %obj @ ")", %this, %obj);
-			%this.setVelocity(%db.grindExitVelocity);
-		}
-		else
-		{
-			pDebug("GRIND : Applying exit velocity (" @ %this @ ", " @ %obj @ ")", %this, %obj);
-			%this.addVelocity(%db.grindExitVelocity);
-		}
-		pDebug("   -Velocity:" SPC %db.grindExitVelocity, %this, %obj);
-	}
 }
 
 function Player::updateGrindGhost(%this)
@@ -922,6 +943,153 @@ function fxDTSBrick::beginGrindGhost(%obj)
 		return;
 
 	%player.schedule(0, initiateGrindGhost, %obj);
+}
+
+function fxDTSBrick::onGrindRailEnter(%this, %sender, %player)
+{
+	$InputTarget_["Self"] = %this;
+	$InputTarget_["Player"] = %player;
+	$InputTarget_["Client"] = %player.client;
+	$InputTarget_["Last"] = %sender;
+
+	//echo("arrived" SPC %this);
+	%clientMini = getMinigameFromObject(%player.client);
+	%selfMini = getMinigameFromObject(%this);
+	if($Server::Lan)
+		$InputTarget_["MiniGame"] = %clientMini;
+	else
+	{
+		if(%clientMini == %selfMini)
+			$InputTarget["MiniGame"] = %selfMini;
+		else
+			$InputTarget["MiniGame"] = 0;
+	}
+	%this.processInputEvent("onGrindRailEnter", %player.client);
+}
+
+function fxDTSBrick::onGrindRailTransfer(%this, %sender, %player)
+{
+	$InputTarget_["Self"] = %this;
+	$InputTarget_["Player"] = %player;
+	$InputTarget_["Client"] = %player.client;
+	$InputTarget_["Next"] = %sender;
+
+	//echo("arrived" SPC %this);
+	%clientMini = getMinigameFromObject(%player.client);
+	%selfMini = getMinigameFromObject(%this);
+	if($Server::Lan)
+		$InputTarget_["MiniGame"] = %clientMini;
+	else
+	{
+		if(%clientMini == %selfMini)
+			$InputTarget["MiniGame"] = %selfMini;
+		else
+			$InputTarget["MiniGame"] = 0;
+	}
+	%this.processInputEvent("onGrindRailTransfer", %player.client);
+}
+
+function fxDTSBrick::onGrindRailJump(%this, %player)
+{
+	$InputTarget_["Self"] = %this;
+	$InputTarget_["Player"] = %player;
+	$InputTarget_["Client"] = %player.client;
+
+	//echo("arrived" SPC %this);
+	%clientMini = getMinigameFromObject(%player.client);
+	%selfMini = getMinigameFromObject(%this);
+	if($Server::Lan)
+		$InputTarget_["MiniGame"] = %clientMini;
+	else
+	{
+		if(%clientMini == %selfMini)
+			$InputTarget["MiniGame"] = %selfMini;
+		else
+			$InputTarget["MiniGame"] = 0;
+	}
+	%this.processInputEvent("onGrindRailJump", %player.client);
+}
+
+function fxDTSBrick::onGrindRailCatch(%this, %player)
+{
+	$InputTarget_["Self"] = %this;
+	$InputTarget_["Player"] = %player;
+	$InputTarget_["Client"] = %player.client;
+
+	//echo("arrived" SPC %this);
+	%clientMini = getMinigameFromObject(%player.client);
+	%selfMini = getMinigameFromObject(%this);
+	if($Server::Lan)
+		$InputTarget_["MiniGame"] = %clientMini;
+	else
+	{
+		if(%clientMini == %selfMini)
+			$InputTarget["MiniGame"] = %selfMini;
+		else
+			$InputTarget["MiniGame"] = 0;
+	}
+	%this.processInputEvent("onGrindRailCatch", %player.client);
+}
+
+function fxDTSBrick::onGrindRailExit(%this, %player)
+{
+	$InputTarget_["Self"] = %this;
+	$InputTarget_["Player"] = %player;
+	$InputTarget_["Client"] = %player.client;
+
+	//echo("arrived" SPC %this);
+	%clientMini = getMinigameFromObject(%player.client);
+	%selfMini = getMinigameFromObject(%this);
+	if($Server::Lan)
+		$InputTarget_["MiniGame"] = %clientMini;
+	else
+	{
+		if(%clientMini == %selfMini)
+			$InputTarget["MiniGame"] = %selfMini;
+		else
+			$InputTarget["MiniGame"] = 0;
+	}
+	%this.processInputEvent("onGrindRailExit", %player.client);
+}
+
+function Player::grindRailExit(%this)
+{
+	if(!%this.grinding)
+		return;
+
+	if(!isObject(%this.grindObj))
+		return;
+
+	%this.grindExit(%this.grindObj);
+}
+
+function Player::grindRailJump(%obj, %sp1, %sp2)
+{
+	if(!%obj.grinding)
+		return;
+
+	if(!isObject(%rail = %obj.grindObj))
+		return;
+
+	if(%sp1 < 0)
+		%sp1 = (%railDB.railExitSpeed $= "" ? $Platformer::Rails::DefaultExitSpeed : %railDB.railExitSpeed);
+
+	if(%sp2 < 0)
+		%sp2 = (%railDB.railJumpSpeed $= "" ? $Platformer::Rails::DefaultJumpSpeed : %railDB.railJumpSpeed);
+
+	%railDB = %rail.getDatablock();
+
+	%obj.grindExit();
+
+	%fwdDir = %obj.getForwardVector();
+	%xyVel = VectorScale(%fwdDir, %sp1);
+	%baseVel = VectorAdd(%xyVel, "0 0" SPC %sp2);
+
+	%vel = VectorAdd(%baseVel, %railDB.railJumpMod);
+
+	%obj.addVelocity(%vel);
+
+	%rail.onGrindRailJump(%obj);
 }
 
 package Platformer_GrindRails
@@ -1031,17 +1199,7 @@ package Platformer_GrindRails
 		switch(%slot)
 		{
 			case 2:
-				%rail = %obj.grindObj;
-				%railDB = %rail.getDatablock();
-				%obj.grindExit();
-
-				%fwdDir = %obj.getForwardVector();
-				%xyVel = VectorScale(%fwdDir, (%railDB.railExitSpeed $= "" ? $Platformer::Rails::DefaultExitSpeed : %railDB.railExitSpeed));
-				%baseVel = VectorAdd(%xyVel, "0 0" SPC (%railDB.railJumpSpeed $= "" ? $Platformer::Rails::DefaultJumpSpeed : %railDB.railJumpSpeed));
-
-				%vel = VectorAdd(%baseVel, %railDB.railJumpMod);
-
-				%obj.addVelocity(%vel);
+				%obj.grindRailJump();
 
 			case 0 or 4:
 				%rail = %obj.grindObj;
@@ -1096,3 +1254,12 @@ package Platformer_GrindRails
 	}
 };
 activatePackage(Platformer_GrindRails);
+
+registerInputEvent(fxDTSBrick, "onGrindRailJump", "Self fxDTSBrick\tPlayer Player\tClient GameConnection\tMiniGame MiniGame");
+registerInputEvent(fxDTSBrick, "onGrindRailExit", "Self fxDTSBrick\tPlayer Player\tClient GameConnection\tMiniGame MiniGame");
+registerInputEvent(fxDTSBrick, "onGrindRailCatch", "Self fxDTSBrick\tPlayer Player\tClient GameConnection\tMiniGame MiniGame");
+registerInputEvent(fxDTSBrick, "onGrindRailTransfer", "Self fxDTSBrick\tPlayer Player\tClient GameConnection\tNext fxDTSBrick\tMiniGame MiniGame");
+registerInputEvent(fxDTSBrick, "onGrindRailEnter", "Self fxDTSBrick\tPlayer Player\tClient GameConnection\tLast fxDTSBrick\tMiniGame MiniGame");
+
+registerOutputEvent(Player, "grindRailExit");
+registerOutputEvent(Player, "grindRailJump", "float -0.5 50 0.5" SPC $Platformer::Rails::DefaultExitSpeed TAB "float -0.5 50 0.5" SPC $Platformer::Rails::DefaultJumpSpeed);

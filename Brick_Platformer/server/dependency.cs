@@ -189,3 +189,33 @@ function ShapeBase::getObjectBoxSize(%this)
 
 	return ltrim(%size);
 }
+
+function Player::getMoveSpeeds(%this, %mod)
+{
+	%s0 = %this.getMaxForwardSpeed();
+	%s1 = %this.getMaxBackwardSpeed();
+	%s2 = %this.getMaxSideSpeed();
+	%s3 = %this.getMaxCrouchForwardSpeed();
+	%s4 = %this.getMaxCrouchBackwardSpeed();
+	%s5 = %this.getMaxCrouchSideSpeed();
+
+	for(%i = 0; %i < 6; %i++)
+		%str = %str SPC %s[%i] + %mod;
+
+	return ltrim(%str);
+}
+
+function Player::setMoveSpeeds(%this, %speeds)
+{
+	%this.setMaxForwardSpeed(getWord(%speeds, 0));
+	%this.setMaxBackwardSpeed(getWord(%speeds, 1));
+	%this.setMaxSideSpeed(getWord(%speeds, 2));
+	%this.setMaxCrouchForwardSpeed(getWord(%speeds, 3));
+	%this.setMaxCrouchBackwardSpeed(getWord(%speeds, 4));
+	%this.setMaxCrouchSideSpeed(getWord(%speeds, 5));
+}
+
+function Player::modMoveSpeeds(%this, %mod)
+{
+	%this.setMoveSpeeds(%this.getMoveSpeeds(%mod));
+}
